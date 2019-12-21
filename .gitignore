@@ -1,0 +1,11 @@
+*.sh
+Untitled*
+.ipynb_checkpoints
+__pycache__
+runs
+*.pyc
+submit.sh
+.vscode/.ropeproject
+tmp
+.DS_Store
+*.npy
