@@ -22,7 +22,7 @@ def main(_):
 
     x = 0
     while x < len(words):
-        if words[x][1] == 1:
+        if words[x][1] == flags.FLAGS.min_freq:
             break
         x += 1
 
@@ -36,4 +36,6 @@ def main(_):
 
 
 if __name__ == "__main__":
+    app.flags.DEFINE_integer("min_freq", 2, "min_freq")
+
     app.run(main)

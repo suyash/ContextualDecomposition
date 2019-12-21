@@ -1,3 +1,7 @@
+"""
+TODO: word vectors initialized with uncased GloVe
+"""
+
 import math
 import os
 
@@ -5,15 +9,23 @@ from absl import app, flags, logging
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model  # pylint: disable=import-error
-from tensorflow.keras.layers import Dense, Embedding, Input, LSTM  # pylint: disable=import-error
+from tensorflow.keras.layers import Dense, Dropout, Embedding, Input, LSTM  # pylint: disable=import-error
 import tensorflow_datasets as tfds
 
 
-def prepare_model(vocab_size):
+def prepare_model(embed_dim, hidden_dim, vocab_size):
     seq = Input((None, ), dtype="int32")
-    x = Embedding(vocab_size, 256)(seq)
-    x = LSTM(128)(x)
-    x = Dense(2, activation=None)(x)
+    x = Embedding(
+        vocab_size,
+        embed_dim,
+        embeddings_regularizer=tf.keras.regularizers.l2(4 * 1e-4),
+    )(seq)
+    x = LSTM(hidden_dim)(x)
+    x = Dense(
+        2,
+        activation=None,
+        kernel_regularizer=tf.keras.regularizers.l2(4 * 1e-4),
+    )(x)  # from_logits
     return tf.keras.Model(seq, x)
 
 
@@ -22,6 +34,13 @@ def create_table(tokens):
     values = 1 + tf.range(len(keys))
     return tf.lookup.StaticHashTable(
         tf.lookup.KeyValueTensorInitializer(keys, values), 1 + len(keys))
+
+
+def create_inv_table(tokens):
+    values = tokens
+    keys = 1 + tf.range(len(values))
+    return tf.lookup.StaticHashTable(
+        tf.lookup.KeyValueTensorInitializer(keys, values), "<UNK>")
 
 
 def preprocess_dataset(dataset, table):
@@ -54,21 +73,15 @@ def main(_):
     val_data = val_data.padded_batch(32, padded_shapes=((None, ), ()))
     val_data = val_data.repeat()
 
-    model = prepare_model(2 + len(tokens))
+    vocab_size = 2 + len(tokens)
+    model = prepare_model(embed_dim=flags.FLAGS.embed_dim,
+                          hidden_dim=flags.FLAGS.hidden_dim,
+                          vocab_size=vocab_size)
+    model.summary()
+
     optimizer = tf.keras.optimizers.Adam()
 
     job_dir = flags.FLAGS["job-dir"].value
-    checkpoint_dir = os.path.join(job_dir, "checkpoints")
-    checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-    checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
-    latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
-    _ = checkpoint.restore(latest_checkpoint)
-    initial_epoch = 0
-    if latest_checkpoint != None:
-        logging.info("Restoring from: %s", latest_checkpoint)
-        initial_epoch = int(latest_checkpoint.split("-")[-1])
-    else:
-        logging.info("Starting from Scratch")
 
     loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     acc = tf.keras.metrics.SparseCategoricalAccuracy()
@@ -79,11 +92,11 @@ def main(_):
     val_steps = int(math.ceil(872 / 32))
 
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor="val_loss",
-                                         patience=5,
-                                         restore_best_weights=True),
-        tf.keras.callbacks.LambdaCallback(
-            on_epoch_end=lambda _, __: checkpoint.save(checkpoint_prefix)),
+        tf.keras.callbacks.EarlyStopping(
+            monitor="val_sparse_categorical_accuracy",
+            patience=10,
+            restore_best_weights=True,
+            verbose=1),
         tf.keras.callbacks.TensorBoard(log_dir=job_dir),
     ]
 
@@ -92,11 +105,14 @@ def main(_):
               steps_per_epoch=train_steps,
               validation_data=val_data,
               validation_steps=val_steps,
-              initial_epoch=initial_epoch,
               callbacks=callbacks)
+
+    model.save(os.path.join(job_dir, "saved_model", "best"))
 
 
 if __name__ == "__main__":
+    app.flags.DEFINE_integer("embed_dim", 300, "embed_dim")
+    app.flags.DEFINE_integer("hidden_dim", 168, "hidden_dim")
     app.flags.DEFINE_integer("steps_per_epoch", int(math.ceil(67349 / 32)),
                              "steps_per_epoch")
     app.flags.DEFINE_string("tfds_data_dir", "~/tensorflow_datasets",
