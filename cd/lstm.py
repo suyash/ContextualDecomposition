@@ -13,18 +13,18 @@ from tensorflow.keras.layers import Dense, Dropout, Embedding, Input, LSTM  # py
 import tensorflow_datasets as tfds
 
 
-def prepare_model(embed_dim, hidden_dim, vocab_size):
+def prepare_model(embed_dim, hidden_dim, l2_weight, vocab_size):
     seq = Input((None, ), dtype="int32")
     x = Embedding(
         vocab_size,
         embed_dim,
-        embeddings_regularizer=tf.keras.regularizers.l2(4 * 1e-4),
+        embeddings_regularizer=tf.keras.regularizers.l2(l2_weight),
     )(seq)
     x = LSTM(hidden_dim)(x)
     x = Dense(
         2,
         activation=None,
-        kernel_regularizer=tf.keras.regularizers.l2(4 * 1e-4),
+        kernel_regularizer=tf.keras.regularizers.l2(l2_weight),
     )(x)  # from_logits
     return tf.keras.Model(seq, x)
 
@@ -66,16 +66,17 @@ def main(_):
     train_data = train_data.cache()
     train_data = train_data.prefetch(tf.data.experimental.AUTOTUNE)
     train_data = train_data.shuffle(buffer_size=1000)
-    train_data = train_data.padded_batch(32, padded_shapes=((None, ), ()))
+    train_data = train_data.padded_batch(flags.FLAGS.batch_size,
+                                         padded_shapes=((None, ), ()))
     train_data = train_data.repeat()
 
     val_data = preprocess_dataset(val_data, table)
-    val_data = val_data.padded_batch(32, padded_shapes=((None, ), ()))
-    val_data = val_data.repeat()
+    val_data = val_data.batch(1)
 
     vocab_size = 2 + len(tokens)
     model = prepare_model(embed_dim=flags.FLAGS.embed_dim,
                           hidden_dim=flags.FLAGS.hidden_dim,
+                          l2_weight=flags.FLAGS.l2_weight,
                           vocab_size=vocab_size)
     model.summary()
 
@@ -89,7 +90,7 @@ def main(_):
     model.compile(optimizer, loss, metrics=[acc])
 
     train_steps = flags.FLAGS.steps_per_epoch
-    val_steps = int(math.ceil(872 / 32))
+    val_steps = 872
 
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
@@ -113,6 +114,8 @@ def main(_):
 if __name__ == "__main__":
     app.flags.DEFINE_integer("embed_dim", 300, "embed_dim")
     app.flags.DEFINE_integer("hidden_dim", 168, "hidden_dim")
+    app.flags.DEFINE_float("l2_weight", 4 * 1e-4, "l2_weight")
+    app.flags.DEFINE_integer("batch_size", 32, "batch_size")
     app.flags.DEFINE_integer("steps_per_epoch", int(math.ceil(67349 / 32)),
                              "steps_per_epoch")
     app.flags.DEFINE_string("tfds_data_dir", "~/tensorflow_datasets",
