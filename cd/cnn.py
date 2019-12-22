@@ -1,7 +1,9 @@
 """
-TODO: word vectors initialized with uncased GloVe
+"Convolutional Neural Networks for Sentence Classification"
+https://arxiv.org/abs/1408.5882
 """
 
+import json
 import math
 import os
 
@@ -9,26 +11,39 @@ from absl import app, flags, logging
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model  # pylint: disable=import-error
-from tensorflow.keras.layers import Dense, Dropout, Embedding, Input, LSTM  # pylint: disable=import-error
+from tensorflow.keras.layers import Activation, Concatenate, Conv1D, Dense, Embedding, GlobalMaxPool1D, Input, LSTM  # pylint: disable=import-error
 import tensorflow_datasets as tfds
 
 from .preprocess import prepare_datasets
 
 
-def prepare_model(embed_dim, hidden_dim, l2_weight, vocab_size):
+def prepare_model(embed_dim, l2_weight, vocab_size, conv_layers):
     seq = Input((None, ), dtype="int32")
     x = Embedding(
         vocab_size,
         embed_dim,
-        embeddings_regularizer=tf.keras.regularizers.l2(l2_weight),
-    )(seq)
-    x = LSTM(hidden_dim)(x)
+        embeddings_regularizer=tf.keras.regularizers.l2(l2_weight))(seq)
+
+    conv_outputs = []
+    for i, l in enumerate(conv_layers):
+        c = Conv1D(
+            filters=l[0],
+            kernel_size=l[1],
+            activation=None,
+            kernel_regularizer=tf.keras.regularizers.l2(l2_weight),
+        )(x)
+        c = Activation("tanh", name="tanh_%d" % i)(c)
+        c = GlobalMaxPool1D()(c)
+        conv_outputs.append(c)
+
+    x = Concatenate(axis=-1)(conv_outputs)
     x = Dense(
         2,
         activation=None,
         kernel_regularizer=tf.keras.regularizers.l2(l2_weight),
     )(x)  # from_logits
-    return tf.keras.Model(seq, x)
+
+    return Model(seq, x)
 
 
 def main(_):
@@ -41,12 +56,14 @@ def main(_):
 
     train_data, val_data = prepare_datasets(datasets,
                                             tokens=tokens,
-                                            batch_size=flags.FLAGS.batch_size)
+                                            batch_size=flags.FLAGS.batch_size,
+                                            val_min_len=8)
 
+    conv_layers = json.loads(flags.FLAGS.conv_layers)
     model = prepare_model(embed_dim=flags.FLAGS.embed_dim,
-                          hidden_dim=flags.FLAGS.hidden_dim,
                           l2_weight=flags.FLAGS.l2_weight,
-                          vocab_size=vocab_size)
+                          vocab_size=vocab_size,
+                          conv_layers=conv_layers)
     model.summary()
 
     optimizer = tf.keras.optimizers.Adam()
@@ -81,10 +98,12 @@ def main(_):
 
 
 if __name__ == "__main__":
-    app.flags.DEFINE_integer("embed_dim", 300, "embed_dim")
-    app.flags.DEFINE_integer("hidden_dim", 168, "hidden_dim")
+    app.flags.DEFINE_integer("embed_dim", 128, "embed_dim")
     app.flags.DEFINE_float("l2_weight", 4 * 1e-4, "l2_weight")
     app.flags.DEFINE_integer("batch_size", 32, "batch_size")
+    app.flags.DEFINE_string("conv_layers",
+                            "[[128, 2], [128, 3], [128, 4], [128, 5]]",
+                            "json encoded conv layers config")
     app.flags.DEFINE_integer("steps_per_epoch", int(math.ceil(67349 / 32)),
                              "steps_per_epoch")
     app.flags.DEFINE_string("tfds_data_dir", "~/tensorflow_datasets",

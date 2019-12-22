@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-from .lstm import create_table, preprocess_dataset
+from .preprocess import create_table, preprocess_dataset
 
 
 def main(_):
@@ -15,6 +15,7 @@ def main(_):
     table = create_table(tokens)
 
     val_data = preprocess_dataset(datasets[tfds.Split.VALIDATION], table)
+    val_data = val_data.filter(lambda a, b: tf.shape(a)[0] > 4)
     val_data = val_data.batch(1)
 
     _, a = model.evaluate(val_data)
