@@ -2,7 +2,8 @@ import tensorflow as tf
 from tensorflow.keras import Model  # pylint: disable=import-error
 from tensorflow.keras.layers import Conv1D, Dense, Embedding, Input, LSTMCell, MaxPool1D, RNN  # pylint: disable=import-error
 
-from .cd import conv1d_decomposition, lstm_decomposition, max_pool1d_decomposition
+from .cd import cnn_net_decomposition, conv1d_decomposition, lstm_decomposition, max_pool1d_decomposition
+from .cnn import prepare_model
 
 
 class LSTMDecompositionTest(tf.test.TestCase):
@@ -70,6 +71,28 @@ class MaxPool1DDecompositionTest(tf.test.TestCase):
                                                             ksize=2)
 
         self.assertAllClose(rel_output + irrel_output, desired_output)
+
+
+class CNNDecomposition(tf.test.TestCase):
+    def setUp(self):
+        m = prepare_model(64, 4e-6, 8000, [(64, 2), (64, 3), (64, 4), (64, 5)])
+        self.model = Model(m.inputs, m.layers[-2].output)
+
+    def test_decomposition(self):
+        x = tf.random.uniform((1, 32), minval=0, maxval=8000, dtype=tf.int32)
+
+        w = self.model.weights
+
+        conv_weights = []
+        for i in range((len(w) - 1) // 2):
+            conv_weights.append((w[2 * i + 1], w[2 * i + 2]))
+
+        inp = tf.nn.embedding_lookup(params=w[0], ids=x)
+        rel, irrel = cnn_net_decomposition(inp, conv_weights, q=5, r=10)
+
+        desired_output = self.model(x)
+
+        self.assertAllClose(desired_output, rel + irrel)
 
 
 if __name__ == "__main__":

@@ -140,3 +140,41 @@ def max_pool1d_decomposition(relevant, irrelevant, ksize):
     irrelevant = tf.squeeze(irrelevant, [1])
 
     return relevant, irrelevant
+
+
+def cnn_net_decomposition(x, conv_weights, q, r):
+    a, b, c = tf.shape(x)
+
+    relevant = tf.concat(
+        [
+            tf.zeros((a, q, c)),
+            x[:, q:(r + 1), :],
+            tf.zeros((a, b - (r + 1), c)),
+        ],
+        axis=1,
+    )
+
+    irrelevant = tf.concat(
+        [
+            x[:, :q, :],
+            tf.zeros((a, (r + 1) - q, c)),
+            x[:, (r + 1):, :],
+        ],
+        axis=1,
+    )
+
+    rel_outputs, irrel_outputs = [], []
+
+    for w in conv_weights:
+        rel, irrel = conv1d_decomposition(relevant, irrelevant, w[0], w[1])
+        rel, irrel = act_decomposition(rel, irrel, act_fn=tf.math.tanh)
+        rel, irrel = max_pool1d_decomposition(rel, irrel, ksize=rel.shape[1])
+        rel, irrel = tf.squeeze(rel, axis=[1]), tf.squeeze(irrel, axis=[1])
+
+        rel_outputs.append(rel)
+        irrel_outputs.append(irrel)
+
+    relevant = tf.concat(rel_outputs, axis=-1)
+    irrelevant = tf.concat(irrel_outputs, axis=-1)
+
+    return relevant, irrelevant
