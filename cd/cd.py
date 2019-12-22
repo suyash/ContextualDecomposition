@@ -92,3 +92,51 @@ def _decomp_three(a, b, c, f):
 
 def _decomp_two(a, b, f):
     return 0.5 * (f(a) + (f(a + b) - f(b))), 0.5 * (f(b) + (f(a + b) - f(a)))
+
+
+def conv1d_decomposition(relevant, irrelevant, conv_kernel, bias):
+    relevant = tf.nn.conv1d(relevant, conv_kernel, stride=1, padding="VALID")
+    irrelevant = tf.nn.conv1d(irrelevant,
+                              conv_kernel,
+                              stride=1,
+                              padding="VALID")
+
+    relevant_abs = tf.math.abs(relevant)
+    irrelevant_abs = tf.math.abs(irrelevant)
+
+    relevant += bias * (relevant_abs / (relevant_abs + irrelevant_abs))
+    irrelevant += bias * (irrelevant_abs / (relevant_abs + irrelevant_abs))
+
+    return relevant, irrelevant
+
+
+def act_decomposition(relevant, irrelevant, act_fn):
+    return (act_fn(relevant), act_fn(relevant + irrelevant) - act_fn(relevant))
+
+
+def max_pool1d_decomposition(relevant, irrelevant, ksize):
+    relevant = tf.expand_dims(relevant, 1)
+    irrelevant = tf.expand_dims(irrelevant, 1)
+
+    o, a = tf.nn.max_pool_with_argmax(relevant + irrelevant,
+                                      ksize=(1, ksize),
+                                      strides=ksize,
+                                      padding="VALID")
+
+    relevant = tf.gather(
+        params=tf.reshape(relevant, [tf.size(relevant)]),
+        indices=tf.reshape(a, [tf.size(a)]),
+    )
+
+    irrelevant = tf.gather(
+        params=tf.reshape(irrelevant, [tf.size(irrelevant)]),
+        indices=tf.reshape(a, [tf.size(a)]),
+    )
+
+    relevant = tf.reshape(relevant, tf.shape(o))
+    irrelevant = tf.reshape(irrelevant, tf.shape(o))
+
+    relevant = tf.squeeze(relevant, [1])
+    irrelevant = tf.squeeze(irrelevant, [1])
+
+    return relevant, irrelevant

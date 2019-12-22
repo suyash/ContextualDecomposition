@@ -11,7 +11,7 @@ from absl import app, flags, logging
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model  # pylint: disable=import-error
-from tensorflow.keras.layers import Activation, Concatenate, Conv1D, Dense, Embedding, GlobalMaxPool1D, Input, LSTM  # pylint: disable=import-error
+from tensorflow.keras.layers import Activation, Concatenate, Conv1D, Dense, Embedding, GlobalMaxPool1D, Input  # pylint: disable=import-error
 import tensorflow_datasets as tfds
 
 from .preprocess import prepare_datasets
