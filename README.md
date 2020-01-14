@@ -2,13 +2,21 @@
 
 Experiments with Contextual Decomposition
 
-__LSTM Contextual Decomposition Demo:__ https://colab.research.google.com/github/suyash/ContextualDecomposition/blob/master/lstm_decomposition_demo.ipynb
+#### LSTM
 
-__LSTM Agglomerative Contextual Decomposition Demo:__ https://colab.research.google.com/github/suyash/ContextualDecomposition/blob/master/lstm_acd_demo.ipynb
+__Contextual Decomposition Demo:__ https://colab.research.google.com/github/suyash/ContextualDecomposition/blob/master/lstm_decomposition_demo.ipynb
 
-__Conv1D Contextual Decomposition Demo:__ https://colab.research.google.com/github/suyash/ContextualDecomposition/blob/master/conv1d_decomposition_demo.ipynb
+__Agglomerative Contextual Decomposition Demo:__ https://colab.research.google.com/github/suyash/ContextualDecomposition/blob/master/lstm_acd_demo.ipynb
 
-__Conv1D Agglomerative Contextual Decomposition Demo:__ https://colab.research.google.com/github/suyash/ContextualDecomposition/blob/master/conv1d_acd_demo.ipynb
+#### Conv1D
+
+__Contextual Decomposition Demo:__ https://colab.research.google.com/github/suyash/ContextualDecomposition/blob/master/conv1d_decomposition_demo.ipynb
+
+__Agglomerative Contextual Decomposition Demo:__ https://colab.research.google.com/github/suyash/ContextualDecomposition/blob/master/conv1d_acd_demo.ipynb
+
+#### Conv2D
+
+__Contextual Decomposition Demo:__ https://colab.research.google.com/github/suyash/ContextualDecomposition/blob/master/conv2d_decomposition_demo.ipynb
 
 ## Papers
 
