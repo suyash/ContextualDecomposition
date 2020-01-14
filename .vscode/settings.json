@@ -1,4 +1,5 @@
 {
-    "python.pythonPath": "/usr/local/miniconda3/envs/cd/bin/python",
-    "python.formatting.provider": "yapf"
+    "python.pythonPath": "/home/suyash/miniconda3/envs/cd/bin/python",
+    "python.formatting.provider": "yapf",
+    "python.linting.enabled": true
 }
